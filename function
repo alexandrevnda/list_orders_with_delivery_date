@@ -1,0 +1,65 @@
+function listOrdersDeliveryDates() {
+  var spreadsheet = SpreadsheetApp.getActive();
+  var sheet = spreadsheet.getSheetByName('Dados');
+  var host = sheet.getRange(2, 2).getValue();
+  var username = sheet.getRange(3, 2).getValue();
+  var password = sheet.getRange(4, 2).getValue();
+  var start_date = sheet.getRange(5, 2).getValue();
+  var end_date = sheet.getRange(6, 2).getValue();
+  
+  var page = 1;
+  var data = [];
+  do {
+    var orders = getOrders(host, username, password, start_date, end_date, page);
+    page++;
+    insertOrderInfo(data, orders);
+  } while (orders.length > 0);
+  return data;
+}
+
+function getOrders(host, username, password, start_date, end_date, page) {
+  var baseUrl = 'https://' + host + '/api/v2/orders';
+  var query = '?range_by=received_at&start=' + start_date + '&finish=' + end_date + '&page=' + page;
+  var url = baseUrl + query;
+  return callApi(url, username, password);
+}
+
+function insertOrderInfo(data, orders) {
+  for (var index in orders) {
+    var order = orders[index];
+    data.push([
+      order.code,
+      formatDatetime(order.confirmed_at),
+      formatDatetime(order.received_at),
+      formatDate(order.expected_delivery_date)
+    ]);
+  }
+}
+
+function callApi(url, username, password) {
+  var auth_token = Utilities.base64Encode(username + ':' + password);
+  var response = UrlFetchApp.fetch(
+    url,
+    {
+      headers: {
+        'Authorization': 'Basic ' + auth_token
+      },
+      muteHttpExceptions: true
+    }
+  );
+  return JSON.parse(response);
+}
+
+function formatDatetime(dateString) {
+  if (!dateString) {
+    return '';
+  }
+  return Utilities.formatDate(new Date(dateString), 'GMT', 'dd/MM/yyyy HH:mm:ss');
+}
+
+function formatDate(dateString) {
+  if (!dateString) {
+    return '';
+  }
+  return Utilities.formatDate(new Date(dateString), 'GMT', 'dd/MM/yyyy');
+}
